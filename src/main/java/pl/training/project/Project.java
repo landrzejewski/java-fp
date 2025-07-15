@@ -4,7 +4,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.*;
+import static java.util.stream.Collectors.groupingBy;
 
 record Product(String id, String name, Category category, Money price, int stock) {}
 record Category(String id, String name, double taxRate) {}
@@ -95,11 +100,19 @@ class InventoryService {
      * - Chain filter operations
      * - Compare product.category().id() with categoryId
      */
+
+    private Predicate<Product> byCategoryId(String categoryId) {
+        return product -> product.category().id().equals(categoryId);
+    }
+
+    private Predicate<Product> byMinStockValue(int minStockValue) {
+        return product -> product.stock() >= minStockValue;
+    }
+
     public Stream<Product> findAvailableProductsByCategory(String categoryId, int minStock) {
-        // TODO: Implement using streams
-        // Example: findAvailableProductsByCategory("electronics", 10)
-        //          should return all electronics with 10+ items in stock
-        return Stream.empty();
+        return products.values().stream()
+                .filter(byCategoryId(categoryId))
+                .filter(byMinStockValue(minStock));
     }
 
     /**
@@ -116,10 +129,14 @@ class InventoryService {
      * - Remember: Money has a currency, ensure all products in a category use same currency
      */
     public Map<Category, Money> calculateInventoryValueByCategory() {
-        // TODO: Implement using streams and collectors
-        // Example result: {Category[Electronics] -> Money[1000 USD],
-        //                  Category[Books] -> Money[500 USD]}
-        return Map.of();
+        return products.values().stream()
+                .collect(groupingBy(
+                        Product::category,
+                        reducing(
+                            new Money(BigDecimal.ZERO, Currency.getInstance("PLN")),
+                            product -> product.price().multiply(BigDecimal.valueOf(product.stock())),
+                            Money::add
+                        )));
     }
 
     /**
@@ -137,10 +154,21 @@ class InventoryService {
      * - Build appropriate Success or Failure
      */
     public Result<Map<String, Integer>, List<String>> checkAvailability(List<OrderItem> items) {
-        // TODO: Implement availability checking
-        // Example Success: Result.Success({productA -> 50, productB -> 30})
-        // Example Failure: Result.Failure(["productC: requested 10 but only 5 available"])
-        return null;
+        Map<String, Integer> availableQuantities = new HashMap<>();
+        List<String> unavailableItems = new ArrayList<>();
+        for (OrderItem item : items) {
+            Product product = products.get(item.productId());
+            if (product == null) {
+                unavailableItems.add(item.productId() + ": product not found");
+            } else if (product.stock() < item.quantity()) {
+                unavailableItems.add(item.productId() + ": requested " + item.quantity() +
+                        " but only " + product.stock() + " available");
+            } else {
+                availableQuantities.put(product.id(), item.quantity());
+            }
+        }
+
+        return unavailableItems.isEmpty() ? new Result.Success<>(availableQuantities) : new Result.Failure<>(unavailableItems);
     }
 
     /**
