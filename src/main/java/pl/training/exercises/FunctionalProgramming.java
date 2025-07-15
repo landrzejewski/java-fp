@@ -142,11 +142,7 @@ public class FunctionalProgramming {
         return cons.head + sum(cons.tail);
     }
 
-    public static double product(List<Double> xs) {
-        if (xs instanceof Nil) return 1.0;
-        Cons<Double> cons = (Cons<Double>) xs;
-        return cons.head * product(cons.tail);
-    }
+
 
     public static <A> List<A> tail(List<A> xs) {
         if (xs instanceof Cons) {
@@ -618,6 +614,7 @@ public class FunctionalProgramming {
         System.out.println("abs(-5) = " + abs(-5));
 
         // Currying example
+        // var add3 = curry(FunctionalProgramming::add).apply(3);
         Function<Integer, Integer> add3 = add(3);
         System.out.println("add3(2) = " + add3.apply(2));
 
@@ -627,6 +624,11 @@ public class FunctionalProgramming {
 
         // List example
         List<Integer> numbers = List.of(1, 2, 3, 4, 5);
+
+        Integer[] numbers2 = new Integer[] {1};
+
+        findFirst(numbers2, FunctionalProgramming::isEven);
+
         System.out.println("sum = " + sum(numbers));
 
         List<Integer> doubled = map(numbers, x -> x * 2);
@@ -652,15 +654,40 @@ public class FunctionalProgramming {
         System.out.println("fibonacci().take(10).toList() = " + fibonacci().take(10).toList());
 
         // IO example
-        IO<Void> program = write("Enter temperature in degrees Fahrenheit: ")
+
+
+
+         var program = write("Enter temperature in degrees Fahrenheit: ")
                 .flatMap(v -> read())
-                .map(Double::parseDouble)
-                .map(temp -> (temp - 32) * 5.0 / 9.0)
-                .map(celsius -> String.format("%.2f", celsius))
-                .map(temp -> "Temperature is equal " + temp + "°C")
+                .map(FunctionalProgramming::parseDouble)
+                .map(FunctionalProgramming::toCelsius)
+                .map(FunctionalProgramming::formatTemperature)
+                .map(FunctionalProgramming::formatResult)
                 .flatMap(FunctionalProgramming::write);
 
         // Uncomment to run the IO program
-        // program.run();
+         program.run();
     }
+
+    static Double parseDouble(String value) {
+       try {
+           return Double.parseDouble(value);
+       } catch (NumberFormatException e) {
+           return 0.0;
+       }
+    }
+
+    static Double toCelsius(Double value) {
+        return (value - 32) * 5.0 / 9.0;
+    }
+
+    static String formatTemperature(double temperature) {
+        return String.format("%.2f", temperature);
+    }
+
+    static String formatResult(String temperature) {
+        return "Temperature is equal " + temperature + "°C";
+    }
+
+
 }
