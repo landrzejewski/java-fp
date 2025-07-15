@@ -164,6 +164,19 @@ List<Integer> numbers = IntStream.rangeClosed(1, 100)
 int sumOfSquares = numbers.parallelStream()
     .map(n -> n * n)
     .reduce(0, Integer::sum);
+
+// Non-associative operations like subtraction, the order matters significantly.
+var numbers = Arrays.asList(20, 5, 3, 2);
+int seq = numbers.stream().reduce((a, b) -> a - b)
+        .orElse(0);
+        System.out.println(seq);
+
+int seq2 = numbers.stream()
+        .parallel()
+        .reduce((a, b) -> a - b)
+        .orElse(0);
+        System.out.println(seq2);
+    }
 ```
 
 ### Example 4: Custom Thread Pool
