@@ -266,5 +266,122 @@ class InventoryService {
     }
 }
 
+@FunctionalInterface
+interface DiscountRule {
+    Optional<Discount> apply(Order order, Customer customer, Map<String, Product> products);
+}
+
+record Discount(String code, BigDecimal percentage, String description) {}
+
+class PricingService {
+
+    private final List<DiscountRule> discountRules;
+
+    public PricingService(List<DiscountRule> discountRules) {
+        this.discountRules = new ArrayList<>(discountRules);
+    }
+
+    /**
+     * Task 2.1: Combine multiple discount rules into one
+     *
+     * Requirements:
+     * - Apply all rules and return the BEST (highest percentage) discount
+     * - If no rules apply, return a rule that always returns Optional.empty()
+     * - The combined rule should itself be a DiscountRule
+     *
+     * Hints:
+     * - Use Stream.of(rules) to process all rules
+     * - Use Optional.empty() as the identity
+     * - Compare discounts by percentage
+     */
+    public static DiscountRule combineRules(DiscountRule... rules) {
+        // TODO: Return a new DiscountRule that applies all rules and picks the best
+        // Example: combineRules(rule1, rule2, rule3) returns a single rule
+        return (order, customer, products) -> Optional.empty();
+    }
+
+    /**
+     * Task 2.2a: Bulk discount rule
+     *
+     * Requirements:
+     * - Give 10% discount if total item count >= 10
+     * - Discount code: "BULK10"
+     * - Description: "10% off for 10+ items"
+     */
+    public static final DiscountRule bulkDiscount = (order, customer, products) -> {
+        // TODO: Count total items across all order items
+        // If >= 10, return Optional.of(new Discount(...))
+        return Optional.empty();
+    };
+
+    /**
+     * Task 2.2b: VIP customer discount rule
+     *
+     * Requirements:
+     * - Give 15% discount to VIP customers only
+     * - Discount code: "VIP15"
+     * - Description: "15% VIP customer discount"
+     */
+    public static final DiscountRule vipDiscount = (order, customer, products) -> {
+        // TODO: Check customer type
+        return Optional.empty();
+    };
+
+    /**
+     * Task 2.2c: Category-based discount rule factory
+     *
+     * Requirements:
+     * - Return a rule that gives specified discount if order contains ANY item from category
+     * - This is a higher-order function (returns a function)
+     * - Discount code: "CAT_" + categoryId
+     *
+     * Hints:
+     * - The returned lambda captures categoryId and percentage
+     * - Check if any order item's product belongs to the category
+     */
+    public static DiscountRule categoryDiscount(String categoryId, BigDecimal percentage) {
+        // TODO: Return a DiscountRule that checks for category
+        return (order, customer, products) -> Optional.empty();
+    }
+
+    /**
+     * Task 2.3: Calculate complete order pricing
+     *
+     * Requirements:
+     * 1. Calculate subtotal (sum of item price * quantity)
+     * 2. Find and apply best discount from all rules
+     * 3. Calculate tax based on product categories
+     * 4. Return Success with OrderPricing or Failure if products not found
+     *
+     * Calculation flow:
+     * - Subtotal = Σ(product.price * item.quantity)
+     * - Discount = best discount from rules
+     * - After discount = Subtotal * (1 - discount%)
+     * - Tax = Σ(item_total * category.taxRate) calculated per item
+     * - Total = After discount + Tax
+     *
+     * Hints:
+     * - Validate all products exist first
+     * - Use Money type's add() and multiply() methods
+     * - Handle empty discount (Optional.empty())
+     */
+    public Result<OrderPricing, String> calculatePricing(
+            Order order,
+            Customer customer,
+            Map<String, Product> products) {
+        // TODO: Implement complete pricing calculation
+        return null;
+    }
+}
+
+record OrderPricing(
+        Money subtotal,
+        Optional<Discount> appliedDiscount,
+        Money discountAmount,
+        Money taxAmount,
+        Money total
+) {}
+
+
 public class Project {
 }
