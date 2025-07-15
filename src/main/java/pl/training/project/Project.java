@@ -3,9 +3,11 @@ package pl.training.project;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.Comparator.comparing;
@@ -446,6 +448,92 @@ record OrderPricing(
         Money total
 ) {
 }
+
+class OrderValidator {
+    // Task 3.1a: Validate order has items
+    public static final Function<Order, Validated<Order>> validateItemsNotEmpty = order -> {
+        List<ValidationError> errors = order.items().isEmpty()
+                ? List.of(new ValidationError("items", "Order must contain at least one item"))
+                : List.of();
+        return new Validated<>(order, errors);
+    };
+
+    // Task 3.1b: Validate all quantities are positive
+    public static final Function<Order, Validated<Order>> validateQuantities = order -> {
+        List<ValidationError> errors = IntStream.range(0, order.items().size())
+                .filter(i -> order.items().get(i).quantity() <= 0)
+                .mapToObj(i -> new ValidationError(
+                        "item[" + i + "].quantity",
+                        "Quantity must be positive"
+                ))
+                .collect(Collectors.toList());
+        return new Validated<>(order, errors);
+    };
+
+    // Task 3.1c: Validate customer exists
+    public static final BiFunction<Order, Customer, Validated<Order>> validateCustomerActive =
+            (order, customer) -> {
+                List<ValidationError> errors = new ArrayList<>();
+                if (customer == null || !customer.id().equals(order.customerId())) {
+                    errors.add(new ValidationError("customerId", "Customer not found: " + order.customerId()));
+                }
+                return new Validated<>(order, errors);
+            };
+
+    // Task 3.2: Combine multiple validators into one
+    public static <T> Function<T, Validated<T>> combine(
+            List<Function<T, Validated<T>>> validators) {
+        return t -> validators.stream()
+                .map(validator -> validator.apply(t))
+                .reduce(
+                        new Validated<>(t, List.of()),
+                        (v1, v2) -> {
+                            List<ValidationError> combinedErrors = new ArrayList<>(v1.errors());
+                            combinedErrors.addAll(v2.errors());
+                            return new Validated<>(t, combinedErrors);
+                        }
+                );
+    }
+
+    // Task 3.3: Build complete validation pipeline
+    public Function<Order, Result<Order, List<ValidationError>>> buildValidationPipeline(
+            Map<String, Customer> customers,
+            Map<String, Product> products) {
+
+        // Product existence validator
+        Function<Order, Validated<Order>> validateProductsExist = order -> {
+            List<ValidationError> errors = order.items().stream()
+                    .filter(item -> !products.containsKey(item.productId()))
+                    .map(item -> new ValidationError(
+                            "productId",
+                            "Product not found: " + item.productId()
+                    ))
+                    .collect(Collectors.toList());
+            return new Validated<>(order, errors);
+        };
+
+        // Adapt customer validator to work with Function<Order, Validated<Order>>
+        Function<Order, Validated<Order>> validateCustomer = order ->
+                validateCustomerActive.apply(order, customers.get(order.customerId()));
+
+        // Combine all validators
+        Function<Order, Validated<Order>> combinedValidator = combine(List.of(
+                validateItemsNotEmpty,
+                validateQuantities,
+                validateProductsExist,
+                validateCustomer
+        ));
+
+        // Convert Validated to Result
+        return order -> {
+            Validated<Order> validated = combinedValidator.apply(order);
+            return validated.isValid()
+                    ? new Result.Success<>(order)
+                    : new Result.Failure<>(validated.errors());
+        };
+    }
+}
+
 
 public class Project {
 }
