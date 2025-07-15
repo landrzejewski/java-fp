@@ -8,6 +8,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.*;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
@@ -33,6 +34,11 @@ record Money(BigDecimal amount, Currency currency) {
     public Money add(Money other) {
         if (!currency.equals(other.currency)) throw new IllegalArgumentException("Currency mismatch");
         return new Money(amount.add(other.amount), currency);
+    }
+
+    public Money subtract(Money other) {
+        if (!currency.equals(other.currency)) throw new IllegalArgumentException("Currency mismatch");
+        return new Money(amount.subtract(other.amount), currency);
     }
 }
 
@@ -261,7 +267,8 @@ class InventoryService {
                         .collect(toMap(Map.Entry::getKey, entry -> toProduct(entry, success.value())));
                 yield new Result.Success<>(new InventoryService(updatedProducts));
             }
-            case Result.Failure<Map<String, Integer>, List<String>> failure -> new Result.Failure<>(String.join(", ", failure.error()));
+            case Result.Failure<Map<String, Integer>, List<String>> failure ->
+                    new Result.Failure<>(String.join(", ", failure.error()));
         };
     }
 }
@@ -271,7 +278,8 @@ interface DiscountRule {
     Optional<Discount> apply(Order order, Customer customer, Map<String, Product> products);
 }
 
-record Discount(String code, BigDecimal percentage, String description) {}
+record Discount(String code, BigDecimal percentage, String description) {
+}
 
 class PricingService {
 
@@ -283,94 +291,150 @@ class PricingService {
 
     /**
      * Task 2.1: Combine multiple discount rules into one
-     *
+     * <p>
      * Requirements:
      * - Apply all rules and return the BEST (highest percentage) discount
      * - If no rules apply, return a rule that always returns Optional.empty()
      * - The combined rule should itself be a DiscountRule
-     *
+     * <p>
      * Hints:
      * - Use Stream.of(rules) to process all rules
      * - Use Optional.empty() as the identity
      * - Compare discounts by percentage
      */
-    public static DiscountRule combineRules(DiscountRule... rules) {
-        // TODO: Return a new DiscountRule that applies all rules and picks the best
-        // Example: combineRules(rule1, rule2, rule3) returns a single rule
-        return (order, customer, products) -> Optional.empty();
+    public static DiscountRule combineRules(List<DiscountRule> rules) {
+        return (order, customer, products) ->
+                rules.stream()
+                        .map(rule -> rule.apply(order, customer, products))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .max(comparing(Discount::percentage))
+                        .or(Optional::empty);
     }
 
     /**
      * Task 2.2a: Bulk discount rule
-     *
+     * <p>
      * Requirements:
      * - Give 10% discount if total item count >= 10
      * - Discount code: "BULK10"
      * - Description: "10% off for 10+ items"
      */
-    public static final DiscountRule bulkDiscount = (order, customer, products) -> {
-        // TODO: Count total items across all order items
-        // If >= 10, return Optional.of(new Discount(...))
-        return Optional.empty();
-    };
+    public static final DiscountRule bulkDiscount = (order, customer, products) ->
+            order.items().stream()
+                    .mapToInt(OrderItem::quantity)
+                    .sum() >= 10
+                    ? Optional.of(new Discount("BULK10", new BigDecimal("0.10"), "10% off for 10+ items"))
+                    : Optional.empty();
+
 
     /**
      * Task 2.2b: VIP customer discount rule
-     *
+     * <p>
      * Requirements:
      * - Give 15% discount to VIP customers only
      * - Discount code: "VIP15"
      * - Description: "15% VIP customer discount"
      */
-    public static final DiscountRule vipDiscount = (order, customer, products) -> {
-        // TODO: Check customer type
-        return Optional.empty();
-    };
+    public static final DiscountRule vipDiscount = (order, customer, products) ->
+            customer.type() == CustomerType.VIP
+                    ? Optional.of(new Discount("VIP15", new BigDecimal("0.10"), "15% VIP customer discount"))
+                    : Optional.empty();
 
     /**
      * Task 2.2c: Category-based discount rule factory
-     *
+     * <p>
      * Requirements:
      * - Return a rule that gives specified discount if order contains ANY item from category
      * - This is a higher-order function (returns a function)
      * - Discount code: "CAT_" + categoryId
-     *
+     * <p>
      * Hints:
      * - The returned lambda captures categoryId and percentage
      * - Check if any order item's product belongs to the category
      */
     public static DiscountRule categoryDiscount(String categoryId, BigDecimal percentage) {
-        // TODO: Return a DiscountRule that checks for category
-        return (order, customer, products) -> Optional.empty();
+        return (order, customer, products) -> {
+            boolean hasCategory = order.items().stream()
+                    .map(item -> products.get(item.productId()))
+                    .anyMatch(product -> product.category().id().equals(categoryId));
+
+            return hasCategory
+                    ? Optional.of(new Discount("CAT_" + categoryId, percentage, "category discount"))
+                    : Optional.empty();
+        };
     }
 
     /**
      * Task 2.3: Calculate complete order pricing
-     *
+     * <p>
      * Requirements:
      * 1. Calculate subtotal (sum of item price * quantity)
      * 2. Find and apply best discount from all rules
      * 3. Calculate tax based on product categories
      * 4. Return Success with OrderPricing or Failure if products not found
-     *
+     * <p>
      * Calculation flow:
      * - Subtotal = Σ(product.price * item.quantity)
      * - Discount = best discount from rules
      * - After discount = Subtotal * (1 - discount%)
      * - Tax = Σ(item_total * category.taxRate) calculated per item
      * - Total = After discount + Tax
-     *
+     * <p>
      * Hints:
      * - Validate all products exist first
      * - Use Money type's add() and multiply() methods
      * - Handle empty discount (Optional.empty())
      */
+
+    private Money calculateTotal(OrderItem item, Map<String, Product> products) {
+        var product = products.get(item.productId());
+        return product.price().multiply(BigDecimal.valueOf(item.quantity()));
+    }
+
     public Result<OrderPricing, String> calculatePricing(
             Order order,
             Customer customer,
             Map<String, Product> products) {
-        // TODO: Implement complete pricing calculation
-        return null;
+
+        var allProductsExists = order.items().stream()
+                .allMatch(item -> products.containsKey(item.productId()));
+
+        if (!allProductsExists) {
+            return new Result.Failure<>("Product found");
+        }
+
+        var subtotal = order.items().stream()
+                .map(item -> calculateTotal(item, products))
+                .reduce(new Money(BigDecimal.ZERO, Currency.getInstance("PLN")), Money::add);
+
+        var bestDiscount = combineRules(discountRules).apply(order, customer, products);
+
+        var discount = bestDiscount
+                .map(Discount::percentage)
+                .map(subtotal::multiply)
+                .orElse(new Money(BigDecimal.ZERO, Currency.getInstance("PLN")));
+
+        var total = subtotal.subtract(discount);
+
+        Function<OrderItem, Money> toTax = item -> {
+            var product = products.get(item.productId());
+            var itemTotal = calculateTotal(item, products);
+            var taxValue = BigDecimal.valueOf(product.category().taxRate());
+            return itemTotal.multiply(taxValue);
+        };
+
+        var totalTax = order.items().stream()
+                .map(toTax)
+                .reduce(new Money(BigDecimal.ZERO, Currency.getInstance("PLN")), Money::add);
+
+        return new Result.Success<>(new OrderPricing(
+            subtotal,
+            bestDiscount,
+            discount,
+            totalTax,
+            total
+        ));
     }
 }
 
@@ -380,8 +444,8 @@ record OrderPricing(
         Money discountAmount,
         Money taxAmount,
         Money total
-) {}
-
+) {
+}
 
 public class Project {
 }
