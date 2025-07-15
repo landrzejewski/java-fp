@@ -735,7 +735,7 @@ public record Report(
 ) {}
 ```
 
-## Part 8: Main Application Pipeline
+## Part 8: pl.training.Main Application Pipeline
 
 **Goal**: Orchestrate all components into a complete order processing system.
 

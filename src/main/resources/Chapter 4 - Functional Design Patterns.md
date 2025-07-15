@@ -1,6 +1,7 @@
 ## Chapter 4: Functional Design Patterns
 
-Monads are a fundamental concept in functional programming that provide a way to structure programs generically. They represent computations defined as sequences of steps, where each step depends on the results of the previous ones.
+Monads are a fundamental concept in functional programming that provide a way to structure programs generically. They represent computations defined as sequences of steps, 
+where each step depends on the results of the previous ones.
 
 ### The Optional Monad
 
@@ -43,7 +44,7 @@ import java.util.function.Function;
 
 sealed interface Result<T> {
     record Success<T>(T value) implements Result<T> {}
-    record Failure<T>(String error) implements Result<T> {}
+    record Failure<T>(T error) implements Result<T> {}
     
     default <R> Result<R> map(Function<T, R> mapper) {
         return switch (this) {

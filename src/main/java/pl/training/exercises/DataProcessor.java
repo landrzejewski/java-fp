@@ -183,7 +183,7 @@ class CategoryStatsCollector implements Collector<ValidatedRecord,
     }
 }
 
-// Main data processor
+// pl.training.Main data processor
 public class DataProcessor {
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");

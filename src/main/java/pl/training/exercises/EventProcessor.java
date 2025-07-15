@@ -285,7 +285,7 @@ class StreamMetrics {
     }
 }
 
-// Main event processor
+// pl.training.Main event processor
 public class EventProcessor {
     private final StreamMetrics metrics = new StreamMetrics();
     private final Map<String, TimeWindow> activeWindows = new ConcurrentHashMap<>();

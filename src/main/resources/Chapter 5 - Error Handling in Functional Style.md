@@ -1430,7 +1430,7 @@ public class ValidationAccumulationExamples {
     private static void validateComplexObject() {
         // Validate nested object
         Validation<String, String> streetValidation = 
-            Validation.valid("123 Main St");
+            Validation.valid("123 pl.training.Main St");
         Validation<String, String> cityValidation = 
             Validation.valid("New York");
         Validation<String, String> zipValidation = 
