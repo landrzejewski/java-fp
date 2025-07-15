@@ -10,6 +10,7 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toMap;
 
 record Product(String id, String name, Category category, Money price, int stock) {}
 record Category(String id, String name, double taxRate) {}
@@ -153,8 +154,24 @@ class InventoryService {
      * - Use Stream.allMatch or partition results
      * - Build appropriate Success or Failure
      */
+
+    private Optional<Product> findProductById(String id) {
+        return Optional.ofNullable(products.get(id));
+    }
+
+    private Predicate<Map.Entry<OrderItem, Optional<Product>>> byAvailability() {
+        return entry -> entry.getValue().isPresent() && entry.getValue().get().stock() >= entry.getKey().quantity();
+    }
+
+    private String toAvailabilityError(Map.Entry<OrderItem, Optional<Product>> entry) {
+        var item = entry.getKey();
+        var product = entry.getValue();
+        return product.map(value -> item.productId() + ": requested " + item.quantity() + " but only " + value.stock() + " available")
+                .orElseGet(() -> item.productId() + ": product not found");
+    }
+
     public Result<Map<String, Integer>, List<String>> checkAvailability(List<OrderItem> items) {
-        Map<String, Integer> availableQuantities = new HashMap<>();
+        /*Map<String, Integer> availableQuantities = new HashMap<>();
         List<String> unavailableItems = new ArrayList<>();
         for (OrderItem item : items) {
             Product product = products.get(item.productId());
@@ -168,7 +185,23 @@ class InventoryService {
             }
         }
 
-        return unavailableItems.isEmpty() ? new Result.Success<>(availableQuantities) : new Result.Failure<>(unavailableItems);
+        return unavailableItems.isEmpty() ? new Result.Success<>(availableQuantities) : new Result.Failure<>(unavailableItems);*/
+
+        var result = items.stream()
+                .map(item -> Map.entry(item, findProductById(item.productId())))
+                .collect(partitioningBy(byAvailability()));
+
+        return result.get(false).isEmpty()
+            ? new Result.Success<>(
+                    result.get(true).stream()
+                        .map(Map.Entry::getKey)
+                        .collect(toMap(OrderItem::productId, OrderItem::quantity))
+            )
+            : new Result.Failure<>(
+                    result.get(false).stream()
+                        .map(this::toAvailabilityError)
+                        .toList()
+            );
     }
 
     /**
