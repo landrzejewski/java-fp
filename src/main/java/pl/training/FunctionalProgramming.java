@@ -715,98 +715,9 @@ public class FunctionalProgramming {
 
     // Example usage
     public static void main(String[] args) {
-        // Pure functions example
-        System.out.println("abs(-5) = " + abs(-5));
-
-        // Currying example
-        Function<Integer, Integer> add3 = add(3);
-        System.out.println("add3(2) = " + add3.apply(2));
-
-        // Recursion example
-        System.out.println("factorial(5) = " + factorial(5));
-        System.out.println("fibonacci(10) = " + fibonacci(10));
-
-        // List example
-        List<Integer> numbers = List.of(1, 2, 3, 4, 5);
-
-        Integer[] numbers2 = new Integer[] {1};
-        findFirst(numbers2, FunctionalProgramming::isEven);
-
-        System.out.println("sum = " + sum(numbers));
-
-        List<Integer> doubled = map(numbers, x -> x * 2);
-        System.out.println("doubled = " + doubled);
-
-        // Option example
-        Option<Integer> some = Option.some(42);
-        Option<Integer> none = Option.none();
-
-        System.out.println("some.map(x -> x * 2) = " + some.map(x -> x * 2).getOrElse(() -> 0));
-        System.out.println("none.map(x -> x * 2) = " + none.map(x -> x * 2).getOrElse(() -> 0));
-
-        // Either example
-        Either<String, Integer> result = safeDiv(10, 2);
-        System.out.println("10 / 2 = " + result.map(Object::toString).orElse(() -> new Right<>("Error")).isRight());
-
-        // Try example
-        Try<Integer> trySuccess = Try.of(() -> Integer.parseInt("42"));
-        Try<Integer> tryFailure = Try.of(() -> Integer.parseInt("not a number"));
-
-        System.out.println("trySuccess = " + trySuccess.map(x -> x * 2).getOrElse(() -> 0));
-        System.out.println("tryFailure = " + tryFailure.map(x -> x * 2).getOrElse(() -> -1));
-
-        // Try with recovery
-        Try<Integer> recovered = tryFailure.recover(e -> {
-            System.out.println("Recovered from: " + e.getMessage());
-            return 0;
-        });
-        System.out.println("recovered value = " + recovered.getOrElse(() -> -1));
-
-        // Try composition
-        Try<Double> divisionTry = Try.of(() -> 10)
-                .flatMap(x -> Try.of(() -> x / 2))
-                .map(x -> x * 1.5);
-        System.out.println("divisionTry = " + divisionTry.getOrElse(() -> 0.0));
-
-        // Validation example - validating user input
-        record User(String name, int age, String email) {}
-
-        Validation<String, String> nameValidation = validateName("John");
-        Validation<String, Integer> ageValidation = validateAge(25);
-        Validation<String, String> emailValidation = validateEmail("john@example.com");
-
-        // Combining validations - accumulates all errors
-        Validation<String, User> userValidation = nameValidation
-                .map2(ageValidation, (name, age) -> new Pair<>(name, age))
-                .map2(emailValidation, (pair, email) -> new User(pair.first(), pair.second(), email));
-
-        System.out.println("Valid user: " + userValidation.getOrElse(() -> new User("Unknown", 0, "")));
-
-        // Invalid validation - accumulates errors
-        Validation<String, String> invalidName = validateName("");
-        Validation<String, Integer> invalidAge = validateAge(-5);
-        Validation<String, String> invalidEmail = validateEmail("invalid");
-
-        Validation<String, User> invalidUser = invalidName
-                .map2(invalidAge, (name, age) -> new Pair<>(name, age))
-                .map2(invalidEmail, (pair, email) -> new User(pair.first(), pair.second(), email));
-
-        if (!invalidUser.isValid()) {
-            System.out.print("Validation errors: ");
-            Invalid<String, User> invalid = (Invalid<String, User>) invalidUser;
-            printList(invalid.errors());
-        }
-
-        // Stream example
-        Stream<Integer> stream = Stream.of(1, 2, 3, 4, 5);
-        System.out.println("stream.take(3).toList() = " + stream.take(3).toList());
-
-        // Infinite stream example
-        System.out.println("ones().take(5).toList() = " + ones().take(5).toList());
-        System.out.println("fibonacci().take(10).toList() = " + fibonacci().take(10).toList());
 
         // IO example
-        var program = write("Enter temperature in degrees Fahrenheit: ")
+        var tempConverter = write("Enter temperature in degrees Fahrenheit: ")
                 .flatMap(v -> read())
                 .map(FunctionalProgramming::parseDouble)
                 .map(FunctionalProgramming::toCelsius)
@@ -815,7 +726,7 @@ public class FunctionalProgramming {
                 .flatMap(FunctionalProgramming::write);
 
         // Uncomment to run the IO program
-        program.run();
+        tempConverter.run();
     }
 
     static Double parseDouble(String value) {
